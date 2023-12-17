@@ -1,73 +1,216 @@
 package com.example.beastquiz
 
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.beastquiz.ui.theme.BeastquizTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import android.os.Bundle
-import android.util.Log
-import android.view.View
-import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
-import java.sql.Connection
-import java.sql.DriverManager
-import java.sql.SQLException
-import java.util.Properties
-val TAG = "MyApp"
+import kotlinx.coroutines.withContext
+import okhttp3.ConnectionSpec
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONArray
 
-data class Animal(val name: String, val feature1: String, val feature2: String,
-             val feature3: String, val feature4: String, val feature5: String,
-             val feature6: String, val feature7: String, val feature8: String)
-class MainActivity : AppCompatActivity() {
+data class Beast(
+    val feature1: String,
+    val feature2: String,
+    val feature3: String,
+    val feature4: String,
+    val feature5: String,
+    val feature6: String,
+    val feature7: String,
+    val feature8: String,
+    val name: String
+)
+
+class MainActivity : ComponentActivity() {
+    private var beasts by mutableStateOf<List<Beast>>(emptyList())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-    }
-    fun dbView(): String {
-        var string1 = ""
-        val url = "jdbc:postgresql://ella.db.elephantsql.com:5432/uqamzagw"
-        val props = Properties()
-        props.setProperty("user", "uqamzagw")
-        props.setProperty("password", "HTHZUHQ9Mqlq9FRPax-p4ZivJ6JLV16y")
 
         GlobalScope.launch(Dispatchers.IO) {
-            try {
-                val connection: Connection =
-                    DriverManager.getConnection(url, "uqamzagw", "HTHZUHQ9Mqlq9FRPax-p4ZivJ6JLV16y")
-                Log.d(TAG, connection.isValid(0).toString())
-                val sql = "SELECT * FROM animals"
-                val statement = connection.createStatement()
-                val resultSet = statement.executeQuery(sql)
-
-                while (resultSet.next()) {
-                    val name = resultSet.getString("name")
-                    val feature1 = resultSet.getString("feature1")
-                    val feature2 = resultSet.getString("feature2")
-                    val feature3 = resultSet.getString("feature3")
-                    val feature4 = resultSet.getString("feature4")
-                    val feature5 = resultSet.getString("feature5")
-                    val feature6 = resultSet.getString("feature6")
-                    val feature7 = resultSet.getString("feature7")
-                    val feature8 = resultSet.getString("feature8")
-                    string1 = "Name: $name, Feature1: $feature1, Feature2: $feature2, " +
-                            "Feature3: $feature3, Feature4: $feature4, " +
-                            "Feature5: $feature5, Feature6: $feature6, " +
-                            "Feature7: $feature7, Feature8: $feature8"
-                }
-                resultSet.close()
-                statement.close()
-                connection.close()
-
-            } catch (e: SQLException) {
-                e.printStackTrace()
-            } catch (e: ClassNotFoundException) {
-                e.printStackTrace()
+            val fetchedBeasts = fetchData()
+            // Update the state on the main thread
+            withContext(Dispatchers.Main) {
+                beasts = fetchedBeasts
             }
         }
-        return string1
+
+        setContent {
+            BeastquizTheme {
+                Surface(
+                    modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    BeastList(beasts = beasts)
+                }
+            }
+        }
     }
 
-    fun button1_click(view: View) {
-        val text1: TextView = findViewById(R.id.text1)
-        text1.text = dbView()
+    private fun fetchData(): List<Beast> {
+        val client = OkHttpClient.Builder()
+            .connectionSpecs(listOf(ConnectionSpec.CLEARTEXT, ConnectionSpec.MODERN_TLS)) // Разрешить незашифрованный и современный TLS трафик
+            .build()
+
+        val request = Request.Builder()
+            .url("http://192.168.0.101:5000/get_data")
+            .build()
+
+        val response = client.newCall(request).execute()
+        val responseBody = response.body?.string()
+
+        val beastList = mutableListOf<Beast>()
+
+        responseBody?.let {
+            val jsonArray = JSONArray(it)
+            for (i in 0 until jsonArray.length()) {
+                val jsonBeast = jsonArray.getJSONObject(i)
+                val beast = Beast(
+                    jsonBeast.getString("feature1"),
+                    jsonBeast.getString("feature2"),
+                    jsonBeast.getString("feature3"),
+                    jsonBeast.getString("feature4"),
+                    jsonBeast.getString("feature5"),
+                    jsonBeast.getString("feature6"),
+                    jsonBeast.getString("feature7"),
+                    jsonBeast.getString("feature8"),
+                    jsonBeast.getString("name")
+                )
+                beastList.add(beast)
+            }
+        }
+
+        return beastList
+    }
+}
+
+@Composable
+fun BeastList(beasts: List<Beast>) {
+        LazyColumn(
+        ) {
+            item {
+                BeastItemHeader()
+            }
+            items(beasts) { beast ->
+                BeastItem(beast)
+            }
+        }
+
+}
+@Composable
+fun BeastItemHeader() {
+    BeastItem(Beast("Признак 1", "Признак 2", "Признак 3",
+        "Признак 4", "Признак 5", "Признак 6",
+        "Признак 7", "Признак 8", "Название"))
+}
+@Composable
+fun BeastItem(beast: Beast) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+    ) {
+        ClickableText(
+            text = AnnotatedString(beast.name),
+            onClick = {
+                expanded = !expanded
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(end = 8.dp),
+            overflow = TextOverflow.Ellipsis,
+            style = TextStyle(fontSize = 25.sp)
+
+        )
+
+        if (expanded) {
+            Text(
+                text = "Признак 1: ${beast.feature1}",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 8.dp),
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "Признак 2: ${beast.feature2}",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 8.dp),
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "Признак 3: ${beast.feature3}",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 8.dp),
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "Признак 4: ${beast.feature4}",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 8.dp),
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "Признак 5: ${beast.feature5}",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 8.dp),
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "Признак 6: ${beast.feature6}",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 8.dp),
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "Признак 7: ${beast.feature7}",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 8.dp),
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "Признак 8: ${beast.feature8}",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 8.dp),
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
