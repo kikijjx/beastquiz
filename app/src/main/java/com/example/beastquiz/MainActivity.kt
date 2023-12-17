@@ -1,33 +1,59 @@
 package com.example.beastquiz
 
+import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.List
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.compose.rememberNavController
 import com.example.beastquiz.ui.theme.BeastquizTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -37,6 +63,11 @@ import okhttp3.ConnectionSpec
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+
 
 data class Beast(
     val feature1: String,
@@ -49,16 +80,35 @@ data class Beast(
     val feature8: String,
     val name: String
 )
-
+{
+    fun getFeature(index: Int): String {
+        if (index == 1) return feature1
+        else if (index == 2) return feature2
+        else if (index == 3) return feature3
+        else if (index == 4) return feature4
+        else if (index == 5) return feature5
+        else if (index == 6) return feature6
+        else if (index == 7) return feature7
+        else return feature8
+    }
+}
+data class BottomNavigationItem(
+    val title: String,
+    val selectedIcon: ImageVector,
+    val unselectedIcon: ImageVector,
+    val hasNews: Boolean,
+    val badgeCount: Int? = null
+)
+@OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
     private var beasts by mutableStateOf<List<Beast>>(emptyList())
 
+    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         GlobalScope.launch(Dispatchers.IO) {
             val fetchedBeasts = fetchData()
-            // Update the state on the main thread
             withContext(Dispatchers.Main) {
                 beasts = fetchedBeasts
             }
@@ -66,11 +116,76 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             BeastquizTheme {
+                val navController = rememberNavController()
+                val items = listOf(
+                    BottomNavigationItem(
+                        title = "Животные",
+                        selectedIcon = Icons.Filled.List,
+                        unselectedIcon = Icons.Outlined.List,
+                        hasNews = false,
+                    ),
+                    BottomNavigationItem(
+                        title = "Игра",
+                        selectedIcon = Icons.Filled.PlayArrow,
+                        unselectedIcon = Icons.Outlined.PlayArrow,
+                        hasNews = false,
+                    ),
+                )
+                var SelectedItemIndex by rememberSaveable {
+                    mutableStateOf(0)
+                }
                 Surface(
                     modifier = androidx.compose.ui.Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    BeastList(beasts = beasts)
+                    Scaffold(
+                        bottomBar = {
+                            NavigationBar {
+                                items.forEachIndexed { index, item ->
+                                    NavigationBarItem(
+                                        selected = SelectedItemIndex == index,
+                                        onClick = {
+                                                  SelectedItemIndex = index
+                                            navController.navigate(item.title)
+                                        },
+                                        label = {
+                                            Text(text = item.title)
+                                        },
+                                        icon = {
+                                            BadgedBox(badge = {}) {
+
+                                            }
+                                            Icon(
+                                                imageVector = if (index == SelectedItemIndex) {
+                                                    item.selectedIcon
+                                                } else item.unselectedIcon,
+                                                contentDescription = item.title
+                                            )
+                                        }
+                                    )
+
+                                }
+                            }
+
+                        }
+                    )
+                    {
+                        innerPadding ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(innerPadding)
+                        ) {
+                            NavHost(navController = navController, startDestination = "Животные") {
+                                composable("Животные") {
+                                    BeastList(beasts = beasts)
+                                }
+                                composable("Игра") {
+                                    Game(beasts = beasts)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -78,7 +193,7 @@ class MainActivity : ComponentActivity() {
 
     private fun fetchData(): List<Beast> {
         val client = OkHttpClient.Builder()
-            .connectionSpecs(listOf(ConnectionSpec.CLEARTEXT, ConnectionSpec.MODERN_TLS)) // Разрешить незашифрованный и современный TLS трафик
+            .connectionSpecs(listOf(ConnectionSpec.CLEARTEXT, ConnectionSpec.MODERN_TLS))
             .build()
 
         val request = Request.Builder()
@@ -126,11 +241,18 @@ fun BeastList(beasts: List<Beast>) {
         }
 
 }
+
+fun Game(beasts: List<Beast>) {
+
+}
+
+
+
 @Composable
 fun BeastItemHeader() {
     BeastItem(Beast("Признак 1", "Признак 2", "Признак 3",
         "Признак 4", "Признак 5", "Признак 6",
-        "Признак 7", "Признак 8", "Название"))
+        "Признак 7", "Признак 8", "Животные"), )
 }
 @Composable
 fun BeastItem(beast: Beast) {
@@ -150,8 +272,10 @@ fun BeastItem(beast: Beast) {
                 .fillMaxWidth()
                 .padding(end = 8.dp),
             overflow = TextOverflow.Ellipsis,
-            style = TextStyle(fontSize = 25.sp)
-
+            style = TextStyle(
+                fontSize = 25.sp,
+                fontWeight = if (beast.name == "Животные") FontWeight.Bold else FontWeight.Normal
+            )
         )
 
         if (expanded) {

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/animalsScreen">
+
+    <composable
+        android:id="@+id/animalsScreen"
+        android:name="com.example.beastquiz.AnimalsScreen"
+        android:label="Животные"
+        tools:ignore="UnusedNavClass" />
+
+    <composable
+        android:id="@+id/gameScreen"
+        android:name="com.example.beastquiz.GameScreen"
+        android:label="Игра"
+        tools:ignore="UnusedNavClass" />
+</navigation>
