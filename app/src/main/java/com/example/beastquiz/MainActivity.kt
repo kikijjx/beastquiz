@@ -197,7 +197,7 @@ class MainActivity : ComponentActivity() {
             .build()
 
         val request = Request.Builder()
-            .url("http://192.168.0.101:5000/get_data")
+            .url("http://188.166.4.134:5000/get_data")
             .build()
 
         val response = client.newCall(request).execute()
@@ -233,7 +233,17 @@ fun BeastList(beasts: List<Beast>) {
         LazyColumn(
         ) {
             item {
-                BeastItemHeader()
+                Text(
+                    text = "Животные",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 8.dp),
+                    overflow = TextOverflow.Ellipsis,
+                    style = TextStyle(
+                        fontSize = 25.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
             }
             items(beasts) { beast ->
                 BeastItem(beast)
@@ -248,12 +258,6 @@ fun Game(beasts: List<Beast>) {
 
 
 
-@Composable
-fun BeastItemHeader() {
-    BeastItem(Beast("Признак 1", "Признак 2", "Признак 3",
-        "Признак 4", "Признак 5", "Признак 6",
-        "Признак 7", "Признак 8", "Животные"), )
-}
 @Composable
 fun BeastItem(beast: Beast) {
     var expanded by remember { mutableStateOf(false) }
