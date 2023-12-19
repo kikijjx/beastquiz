@@ -4,6 +4,14 @@ import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +21,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -36,6 +45,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,7 +54,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role.Companion.Image
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -67,6 +82,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.delay
 
 
 data class Beast(
@@ -102,6 +118,7 @@ data class BottomNavigationItem(
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
     private var beasts by mutableStateOf<List<Beast>>(emptyList())
+    private var loading by mutableStateOf(true)
 
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -111,77 +128,85 @@ class MainActivity : ComponentActivity() {
             val fetchedBeasts = fetchData()
             withContext(Dispatchers.Main) {
                 beasts = fetchedBeasts
+                loading = false
             }
         }
 
         setContent {
             BeastquizTheme {
                 val navController = rememberNavController()
-                val items = listOf(
-                    BottomNavigationItem(
-                        title = "Животные",
-                        selectedIcon = Icons.Filled.List,
-                        unselectedIcon = Icons.Outlined.List,
-                        hasNews = false,
-                    ),
-                    BottomNavigationItem(
-                        title = "Игра",
-                        selectedIcon = Icons.Filled.PlayArrow,
-                        unselectedIcon = Icons.Outlined.PlayArrow,
-                        hasNews = false,
-                    ),
-                )
-                var SelectedItemIndex by rememberSaveable {
-                    mutableStateOf(0)
-                }
-                Surface(
-                    modifier = androidx.compose.ui.Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    Scaffold(
-                        bottomBar = {
-                            NavigationBar {
-                                items.forEachIndexed { index, item ->
-                                    NavigationBarItem(
-                                        selected = SelectedItemIndex == index,
-                                        onClick = {
-                                                  SelectedItemIndex = index
-                                            navController.navigate(item.title)
-                                        },
-                                        label = {
-                                            Text(text = item.title)
-                                        },
-                                        icon = {
-                                            BadgedBox(badge = {}) {
 
-                                            }
-                                            Icon(
-                                                imageVector = if (index == SelectedItemIndex) {
-                                                    item.selectedIcon
-                                                } else item.unselectedIcon,
-                                                contentDescription = item.title
-                                            )
-                                        }
-                                    )
-
-                                }
-                            }
-
-                        }
+                if (loading) {
+                    SplashScreen()
+                } else {
+                    val items = listOf(
+                        BottomNavigationItem(
+                            title = "Животные",
+                            selectedIcon = Icons.Filled.List,
+                            unselectedIcon = Icons.Outlined.List,
+                            hasNews = false,
+                        ),
+                        BottomNavigationItem(
+                            title = "Игра",
+                            selectedIcon = Icons.Filled.PlayArrow,
+                            unselectedIcon = Icons.Outlined.PlayArrow,
+                            hasNews = false,
+                        ),
                     )
-                    {
-                        innerPadding ->
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(innerPadding)
-                        ) {
-                            NavHost(navController = navController, startDestination = "Животные") {
-                                composable("Животные") {
-                                    BeastList(beasts = beasts)
+                    var SelectedItemIndex by rememberSaveable {
+                        mutableStateOf(0)
+                    }
+                    Surface(
+                        modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        Scaffold(
+                            bottomBar = {
+                                NavigationBar {
+                                    items.forEachIndexed { index, item ->
+                                        NavigationBarItem(
+                                            selected = SelectedItemIndex == index,
+                                            onClick = {
+                                                SelectedItemIndex = index
+                                                navController.navigate(item.title)
+                                            },
+                                            label = {
+                                                Text(text = item.title)
+                                            },
+                                            icon = {
+                                                BadgedBox(badge = {}) {
+
+                                                }
+                                                Icon(
+                                                    imageVector = if (index == SelectedItemIndex) {
+                                                        item.selectedIcon
+                                                    } else item.unselectedIcon,
+                                                    contentDescription = item.title
+                                                )
+                                            }
+                                        )
+
+                                    }
                                 }
-                                composable("Игра") {
-                                    Game(beasts = beasts)
+
+                            }
+                        )
+                        { innerPadding ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(innerPadding)
+                            ) {
+                                NavHost(
+                                    navController = navController,
+                                    startDestination = "Животные"
+                                ) {
+                                    composable("Животные") {
+                                        BeastList(beasts = beasts)
+                                    }
+                                    composable("Игра") {
+                                        Game(beasts = beasts)
+                                    }
                                 }
                             }
                         }
@@ -251,7 +276,48 @@ fun BeastList(beasts: List<Beast>) {
         }
 
 }
+@Composable
+fun SplashScreen() {
+    var rotationState by remember { mutableStateOf(0f) }
+    val rotationAnimation = rememberInfiniteTransition()
 
+    val rotation by rotationAnimation.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        )
+    )
+
+    LaunchedEffect(Unit) {
+        rotationState = rotation
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White),
+        contentAlignment = Alignment.Center
+    ) {
+        val painter: Painter = painterResource(id = R.drawable.ic_launcher_monochrome)
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+
+        ) {
+            Image(
+                painter = painter,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(200.dp)
+                    .rotate(rotationState)
+            )
+            Text(text = "Loading...", style = MaterialTheme.typography.headlineLarge)
+        }
+    }
+
+}
 fun Game(beasts: List<Beast>) {
 
 }
