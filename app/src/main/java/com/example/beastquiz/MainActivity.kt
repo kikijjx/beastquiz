@@ -125,10 +125,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         GlobalScope.launch(Dispatchers.IO) {
-            val fetchedBeasts = fetchData()
-            withContext(Dispatchers.Main) {
-                beasts = fetchedBeasts
-                loading = false
+            try {
+                val fetchedBeasts = fetchData()
+                withContext(Dispatchers.Main) {
+                    beasts = fetchedBeasts
+                    loading = false
+                }
+            }
+            catch (exception: Exception) {
+
             }
         }
 
@@ -252,30 +257,6 @@ class MainActivity : ComponentActivity() {
         return beastList
     }
 }
-
-@Composable
-fun BeastList(beasts: List<Beast>) {
-        LazyColumn(
-        ) {
-            item {
-                Text(
-                    text = "Животные",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(end = 8.dp),
-                    overflow = TextOverflow.Ellipsis,
-                    style = TextStyle(
-                        fontSize = 25.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-            }
-            items(beasts) { beast ->
-                BeastItem(beast)
-            }
-        }
-
-}
 @Composable
 fun SplashScreen() {
     var rotationState by remember { mutableStateOf(0f) }
@@ -318,6 +299,30 @@ fun SplashScreen() {
     }
 
 }
+@Composable
+fun BeastList(beasts: List<Beast>) {
+        LazyColumn(
+        ) {
+            item {
+                Text(
+                    text = "Животные",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 8.dp),
+                    overflow = TextOverflow.Ellipsis,
+                    style = TextStyle(
+                        fontSize = 25.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
+            items(beasts) { beast ->
+                BeastItem(beast)
+            }
+        }
+
+}
+
 fun Game(beasts: List<Beast>) {
 
 }
@@ -344,7 +349,7 @@ fun BeastItem(beast: Beast) {
             overflow = TextOverflow.Ellipsis,
             style = TextStyle(
                 fontSize = 25.sp,
-                fontWeight = if (beast.name == "Животные") FontWeight.Bold else FontWeight.Normal
+                fontWeight = FontWeight.Normal
             )
         )
 
