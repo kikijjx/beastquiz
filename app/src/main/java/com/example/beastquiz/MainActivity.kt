@@ -66,6 +66,7 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role.Companion.Image
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
@@ -77,6 +78,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
 import com.example.beastquiz.ui.theme.BeastquizTheme
 import kotlinx.coroutines.Dispatchers
@@ -117,6 +119,8 @@ data class Beast(
 class BeastViewModel : ViewModel() {
     var beasts: MutableState<List<Beast>> = mutableStateOf(emptyList())
     var loading: MutableState<Boolean> = mutableStateOf(true)
+    var serverDown: MutableState<Boolean> = mutableStateOf(false)
+
 }
 
 data class BottomNavigationItem(
@@ -137,12 +141,14 @@ class MainActivity : ComponentActivity() {
         super.onSaveInstanceState(outState)
         outState.putSerializable("beasts", ArrayList(viewModel.beasts.value) as Serializable)
         outState.putBoolean("loading", viewModel.loading.value)
+        outState.putBoolean("serverDown", viewModel.serverDown.value)
     }
 
     override fun onRestoreInstanceState(savedInstanceState: Bundle) {
         super.onRestoreInstanceState(savedInstanceState)
         viewModel.beasts.value = savedInstanceState.getSerializable("beasts") as? List<Beast> ?: emptyList()
         viewModel.loading.value = savedInstanceState.getBoolean("loading", true)
+        viewModel.serverDown.value = savedInstanceState.getBoolean("serverDown", false)
     }
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -154,13 +160,14 @@ class MainActivity : ComponentActivity() {
                 withContext(Dispatchers.Main) {
                     viewModel.beasts.value = fetchedBeasts
                     viewModel.loading.value = false
+                    viewModel.serverDown.value = false
                 }
             }
             catch (exception: SocketTimeoutException) {
-
+                viewModel.serverDown.value = true
             }
             catch (exception: ProtocolException) {
-
+                viewModel.serverDown.value = true
             }
         }
 
@@ -168,8 +175,10 @@ class MainActivity : ComponentActivity() {
             BeastquizTheme {
                 val navController = rememberNavController()
 
-                if (viewModel.loading.value) {
-                    SplashScreen()
+                if (viewModel.loading.value && !viewModel.loading.value) {
+                    SplashScreen(false)
+                } else if (viewModel.serverDown.value) {
+                    SplashScreen(true)
                 } else {
                     val items = listOf(
                         BottomNavigationItem(
@@ -285,7 +294,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 @Composable
-fun SplashScreen() {
+fun SplashScreen(serverDown: Boolean) {
     var rotationState by remember { mutableStateOf(0f) }
     val rotationAnimation = rememberInfiniteTransition()
 
@@ -297,11 +306,9 @@ fun SplashScreen() {
             repeatMode = RepeatMode.Restart
         )
     )
-
     LaunchedEffect(Unit) {
         rotationState = rotation
     }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -321,7 +328,13 @@ fun SplashScreen() {
                     .size(200.dp)
                     .rotate(rotationState)
             )
-            Text(text = "Loading...", style = MaterialTheme.typography.headlineLarge)
+            if (serverDown) {
+                Text(text = stringResource(R.string.server_down), style = MaterialTheme.typography.headlineLarge)
+                Text(text = stringResource(R.string.reconnect), style = MaterialTheme.typography.bodyLarge)
+            }
+            else {
+                Text(text = stringResource(R.string.loading), style = MaterialTheme.typography.headlineLarge)
+            }
         }
     }
 
