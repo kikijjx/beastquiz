@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -26,9 +27,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.PlayArrow
@@ -46,6 +50,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,18 +61,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role.Companion.Image
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
 import androidx.navigation.compose.rememberNavController
 import com.example.beastquiz.ui.theme.BeastquizTheme
 import kotlinx.coroutines.Dispatchers
@@ -83,6 +92,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.delay
+import java.io.Serializable
+import java.net.ProtocolException
+import java.net.SocketTimeoutException
 
 
 data class Beast(
@@ -97,17 +109,16 @@ data class Beast(
     val name: String
 )
 {
+    public val features = listOf(feature1, feature2, feature3, feature4, feature5, feature6, feature7, feature8)
     fun getFeature(index: Int): String {
-        if (index == 1) return feature1
-        else if (index == 2) return feature2
-        else if (index == 3) return feature3
-        else if (index == 4) return feature4
-        else if (index == 5) return feature5
-        else if (index == 6) return feature6
-        else if (index == 7) return feature7
-        else return feature8
+        return features.getOrNull(index - 1) ?: ""
     }
 }
+class BeastViewModel : ViewModel() {
+    var beasts: MutableState<List<Beast>> = mutableStateOf(emptyList())
+    var loading: MutableState<Boolean> = mutableStateOf(true)
+}
+
 data class BottomNavigationItem(
     val title: String,
     val selectedIcon: ImageVector,
@@ -117,9 +128,22 @@ data class BottomNavigationItem(
 )
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
-    private var beasts by mutableStateOf<List<Beast>>(emptyList())
-    private var loading by mutableStateOf(true)
+    private val viewModel: BeastViewModel by viewModels()
 
+    //private var beasts by mutableStateOf<List<Beast>>(emptyList())
+    //private var loading by mutableStateOf(true)
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putSerializable("beasts", ArrayList(viewModel.beasts.value) as Serializable)
+        outState.putBoolean("loading", viewModel.loading.value)
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        super.onRestoreInstanceState(savedInstanceState)
+        viewModel.beasts.value = savedInstanceState.getSerializable("beasts") as? List<Beast> ?: emptyList()
+        viewModel.loading.value = savedInstanceState.getBoolean("loading", true)
+    }
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -128,11 +152,14 @@ class MainActivity : ComponentActivity() {
             try {
                 val fetchedBeasts = fetchData()
                 withContext(Dispatchers.Main) {
-                    beasts = fetchedBeasts
-                    loading = false
+                    viewModel.beasts.value = fetchedBeasts
+                    viewModel.loading.value = false
                 }
             }
-            catch (exception: Exception) {
+            catch (exception: SocketTimeoutException) {
+
+            }
+            catch (exception: ProtocolException) {
 
             }
         }
@@ -141,7 +168,7 @@ class MainActivity : ComponentActivity() {
             BeastquizTheme {
                 val navController = rememberNavController()
 
-                if (loading) {
+                if (viewModel.loading.value) {
                     SplashScreen()
                 } else {
                     val items = listOf(
@@ -207,10 +234,10 @@ class MainActivity : ComponentActivity() {
                                     startDestination = "Животные"
                                 ) {
                                     composable("Животные") {
-                                        BeastList(beasts = beasts)
+                                        BeastList(beasts = viewModel.beasts.value)
                                     }
                                     composable("Игра") {
-                                        Game(beasts = beasts)
+                                        Game(beasts = viewModel.beasts.value)
                                     }
                                 }
                             }
@@ -323,10 +350,107 @@ fun BeastList(beasts: List<Beast>) {
 
 }
 
+@Composable
 fun Game(beasts: List<Beast>) {
+    val animals = beasts
+    var confirmedFeatures by remember { mutableStateOf(emptyList<String>()) }
+    var animalsData by remember { mutableStateOf(animals) }
+    var currentFeatureIndex by remember { mutableStateOf(0) }
+    var currentAnimalIndex by remember { mutableStateOf(0) }
+    var finalAnswer by remember { mutableStateOf("") }
 
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        gameStep(
+            confirmedFeatures,
+            animalsData,
+            currentFeatureIndex,
+            finalAnswer,
+            onStepCompleted = { updatedConfirmedFeatures, updatedAnimalsData, updatedCurrentFeatureIndex, updatedFinalAnswer ->
+                confirmedFeatures = updatedConfirmedFeatures
+                animalsData = updatedAnimalsData
+                currentFeatureIndex = updatedCurrentFeatureIndex
+                finalAnswer = updatedFinalAnswer
+            }
+        )
+    }
 }
 
+@Composable
+fun gameStep(
+    confirmedFeatures: List<String>,
+    animalsData: List<Beast>,
+    currentFeatureIndex: Int,
+    finalAnswer: String,
+    onStepCompleted: (List<String>, List<Beast>, Int, String) -> Unit
+) {
+    if (currentFeatureIndex < 3) {
+        val randomAnimal = animalsData.random()
+        val featureToAsk = randomAnimal.features[currentFeatureIndex]
+
+        Column {
+            Text("Подходит ли признак '$featureToAsk'? (Да/Нет)")
+
+            Row {
+                Button(onClick = {
+                    val updatedConfirmedFeatures = confirmedFeatures + featureToAsk
+                    onStepCompleted(updatedConfirmedFeatures, animalsData, currentFeatureIndex + 1, "")
+                }) {
+                    Text("Да")
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Button(onClick = {
+                    val updatedAnimalsData = animalsData.filter { featureToAsk !in it.features }
+                    onStepCompleted(confirmedFeatures, updatedAnimalsData, currentFeatureIndex + 1, "")
+                }) {
+                    Text("Нет")
+                }
+            }
+        }
+    } else {
+        if (animalsData.isNotEmpty()) {
+            val correctAnimal = animalsData.random()
+            Column {
+                Text("Это животное - ${correctAnimal.name}? (Да/Нет)")
+
+                Row {
+                    Button(onClick = {
+                        onStepCompleted(confirmedFeatures, animalsData, currentFeatureIndex, "Ура! Я угадал!")
+                    }) {
+                        Text("Да")
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(onClick = {
+                        val updatedAnimalsData = animalsData.filter { it != correctAnimal }
+                        onStepCompleted(confirmedFeatures, updatedAnimalsData, currentFeatureIndex, "")
+                    }) {
+                        Text("Нет")
+                    }
+                }
+            }
+        } else {
+            Text("Увы, я не могу угадать ваше животное. Попробуйте еще раз!")
+        }
+    }
+
+    BasicTextField(
+        value = TextFieldValue(finalAnswer),
+        onValueChange = {},
+        readOnly = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 30.dp)
+    )
+    Image(bitmap = ImageBitmap.imageResource(id = R.drawable.picture),
+    contentDescription = "Орёл")
+}
 
 
 @Composable
