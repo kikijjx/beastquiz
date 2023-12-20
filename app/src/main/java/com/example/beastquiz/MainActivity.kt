@@ -2,6 +2,7 @@ package com.example.beastquiz
 
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -13,27 +14,17 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.List
@@ -56,29 +47,22 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role.Companion.Image
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
 import com.example.beastquiz.ui.theme.BeastquizTheme
 import kotlinx.coroutines.Dispatchers
@@ -89,11 +73,8 @@ import okhttp3.ConnectionSpec
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import kotlinx.coroutines.delay
 import java.io.Serializable
 import java.net.ProtocolException
 import java.net.SocketTimeoutException
@@ -111,7 +92,7 @@ data class Beast(
     val name: String
 )
 {
-    public val features = listOf(feature1, feature2, feature3, feature4, feature5, feature6, feature7, feature8)
+    public var features = listOf(feature1, feature2, feature3, feature4, feature5, feature6, feature7, feature8)
     fun getFeature(index: Int): String {
         return features.getOrNull(index - 1) ?: ""
     }
@@ -360,110 +341,200 @@ fun BeastList(beasts: List<Beast>) {
                 BeastItem(beast)
             }
         }
-
 }
 
 @Composable
 fun Game(beasts: List<Beast>) {
-    val animals = beasts
     var confirmedFeatures by remember { mutableStateOf(emptyList<String>()) }
-    var animalsData by remember { mutableStateOf(animals) }
-    var currentFeatureIndex by remember { mutableStateOf(0) }
-    var currentAnimalIndex by remember { mutableStateOf(0) }
-    var finalAnswer by remember { mutableStateOf("") }
+    var i by remember { mutableStateOf(0) }
+    var animalsData by remember { mutableStateOf(beasts) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        gameStep(
-            confirmedFeatures,
-            animalsData,
-            currentFeatureIndex,
-            finalAnswer,
-            onStepCompleted = { updatedConfirmedFeatures, updatedAnimalsData, updatedCurrentFeatureIndex, updatedFinalAnswer ->
-                confirmedFeatures = updatedConfirmedFeatures
-                animalsData = updatedAnimalsData
-                currentFeatureIndex = updatedCurrentFeatureIndex
-                finalAnswer = updatedFinalAnswer
-            }
-        )
+        if (confirmedFeatures.size < 3) {
+            GuessFeatureSection(
+                beast = animalsData.random(),
+                onFeatureSelected = { feature ->
+                    confirmedFeatures = confirmedFeatures + feature
+                    i++
+                },
+                onFeatureRejected = { feature ->
+                    animalsData = animalsData.filter { beast ->
+                        feature !in beast.features
+                    }
+                },
+
+            )
+        }
+        else {
+            // Вызывайте MainGameSection, когда найдено 3 признака
+            MainGameSection(
+                beasts = beasts,
+                confirmedFeatures = confirmedFeatures,
+                onGameEnd = {
+                    // Логика окончания игры
+                    // Можете сбросить игру, если это необходимо
+                    confirmedFeatures = emptyList()
+                    animalsData = beasts
+                }
+            )
+        }
     }
 }
 
 @Composable
-fun gameStep(
-    confirmedFeatures: List<String>,
-    animalsData: List<Beast>,
-    currentFeatureIndex: Int,
-    finalAnswer: String,
-    onStepCompleted: (List<String>, List<Beast>, Int, String) -> Unit
+fun GuessFeatureSection(
+    beast: Beast,
+    onFeatureSelected: (String) -> Unit,
+    onFeatureRejected: (String) -> Unit,
+
 ) {
-    if (currentFeatureIndex < 3) {
-        val randomAnimal = animalsData.random()
-        val featureToAsk = randomAnimal.features[currentFeatureIndex]
+    var currentFeatureIndex by remember { mutableStateOf(0) }
 
+    Column {
+        Text(
+            text = "Подходит ли признак '${beast.getFeature(currentFeatureIndex + 1)}'?",
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(8.dp)
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+        ) {
+            Button(
+                onClick = {
+                    onFeatureSelected(beast.getFeature(currentFeatureIndex + 1))
+                    currentFeatureIndex++
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(4.dp)
+            ) {
+                Text("Да")
+            }
+
+            Button(
+                onClick = {
+                    onFeatureRejected(beast.getFeature(currentFeatureIndex + 1))
+                    currentFeatureIndex++
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(4.dp)
+            ) {
+                Text("Нет")
+            }
+        }
+
+
+
+    }
+}
+@Composable
+fun MainGameSection(
+    beasts: List<Beast>,
+    onGameEnd: () -> Unit,
+    confirmedFeatures: List<String>
+) {
+    var confirmedFeatures1 by remember { mutableStateOf(confirmedFeatures) }
+    var animalsData by remember { mutableStateOf(beasts) }
+    var gameInProgress by remember { mutableStateOf(true) }
+    var currentQuestionIndex by remember { mutableStateOf(0) }
+
+    if (gameInProgress && animalsData.isNotEmpty() && confirmedFeatures1.size < 8) {
+        val correctBeast = animalsData.random()
+
+
+        var flag = true;
+        if (currentQuestionIndex < correctBeast.features.size) {
         Column {
-            Text("Подходит ли признак '$featureToAsk'? (Да/Нет)")
+            Text(
+                text = "Это животное - ${correctBeast.name}? (Да/Нет)",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(8.dp)
+            )
 
-            Row {
-                Button(onClick = {
-                    val updatedConfirmedFeatures = confirmedFeatures + featureToAsk
-                    onStepCompleted(updatedConfirmedFeatures, animalsData, currentFeatureIndex + 1, "")
-                }) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+            ) {
+                Button(
+                    onClick = {
+                        onGameEnd()
+                        gameInProgress = false
+                        flag = false;
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(4.dp)
+                ) {
                     Text("Да")
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Button(onClick = {
-                    val updatedAnimalsData = animalsData.filter { featureToAsk !in it.features }
-                    onStepCompleted(confirmedFeatures, updatedAnimalsData, currentFeatureIndex + 1, "")
-                }) {
+                Button(
+                    onClick = {
+                        animalsData = animalsData.filter { it != correctBeast }
+                        currentQuestionIndex++
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(4.dp)
+                ) {
                     Text("Нет")
                 }
             }
-        }
-    } else {
-        if (animalsData.isNotEmpty()) {
-            val correctAnimal = animalsData.random()
-            Column {
-                Text("Это животное - ${correctAnimal.name}? (Да/Нет)")
 
-                Row {
-                    Button(onClick = {
-                        onStepCompleted(confirmedFeatures, animalsData, currentFeatureIndex, "Ура! Я угадал!")
-                    }) {
-                        Text("Да")
-                    }
+            if (flag == false){
+            Text(
+                text = "Подходит ли признак '${correctBeast.features[currentQuestionIndex]}'?",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(8.dp)
+            )
 
-                    Spacer(modifier = Modifier.width(8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+            ) {
+                Button(
+                    onClick = {
+                        confirmedFeatures1 = confirmedFeatures1.toMutableList().apply {
+                            add(correctBeast.features[currentQuestionIndex])
+                        }
+                        currentQuestionIndex++
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(4.dp)
+                ) {
+                    Text("Да")
+                }
 
-                    Button(onClick = {
-                        val updatedAnimalsData = animalsData.filter { it != correctAnimal }
-                        onStepCompleted(confirmedFeatures, updatedAnimalsData, currentFeatureIndex, "")
-                    }) {
-                        Text("Нет")
-                    }
+                Button(
+                    onClick = {
+                        currentQuestionIndex++
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(4.dp)
+                ) {
+                    Text("Нет")
                 }
             }
-        } else {
-            Text("Увы, я не могу угадать ваше животное. Попробуйте еще раз!")
+              }
+            }
         }
     }
-
-    BasicTextField(
-        value = TextFieldValue(finalAnswer),
-        onValueChange = {},
-        readOnly = true,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 30.dp)
-    )
-    Image(bitmap = ImageBitmap.imageResource(id = R.drawable.picture),
-    contentDescription = "Орёл")
 }
+
+
+
 
 
 @Composable
