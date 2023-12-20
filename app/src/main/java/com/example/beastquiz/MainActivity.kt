@@ -356,7 +356,7 @@ fun Game(beasts: List<Beast>) {
     ) {
         if (confirmedFeatures.size < 3) {
             GuessFeatureSection(
-                beast = animalsData.random(),
+                beasts = animalsData,
                 onFeatureSelected = { feature ->
                     confirmedFeatures = confirmedFeatures + feature
                     i++
@@ -370,15 +370,13 @@ fun Game(beasts: List<Beast>) {
             )
         }
         else {
-            // Вызывайте MainGameSection, когда найдено 3 признака
+
             MainGameSection(
                 beasts = beasts,
                 confirmedFeatures = confirmedFeatures,
                 onGameEnd = {
-                    // Логика окончания игры
-                    // Можете сбросить игру, если это необходимо
-                    confirmedFeatures = emptyList()
-                    animalsData = beasts
+
+
                 }
             )
         }
@@ -387,19 +385,32 @@ fun Game(beasts: List<Beast>) {
 
 @Composable
 fun GuessFeatureSection(
-    beast: Beast,
+    beasts: List<Beast>,
     onFeatureSelected: (String) -> Unit,
     onFeatureRejected: (String) -> Unit,
 
 ) {
-    var currentFeatureIndex by remember { mutableStateOf(0) }
 
-    Column {
-        Text(
-            text = "Подходит ли признак '${beast.getFeature(currentFeatureIndex + 1)}'?",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(8.dp)
-        )
+
+    var randomBeast: Beast? = beasts.shuffled().firstOrNull()
+
+
+    var currentFeatureIndex by remember { mutableStateOf(1) }
+
+
+
+
+
+
+            Column {
+
+                if (randomBeast != null) {
+            Text(
+                text = "Подходит ли признак '${randomBeast.getFeature(currentFeatureIndex+1)}'?",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(8.dp)
+            )
+        }
 
         Row(
             modifier = Modifier
@@ -408,26 +419,37 @@ fun GuessFeatureSection(
         ) {
             Button(
                 onClick = {
-                    onFeatureSelected(beast.getFeature(currentFeatureIndex + 1))
+                    if (randomBeast != null) {
+                        onFeatureSelected(randomBeast.getFeature(currentFeatureIndex + 1))
+                    }
+                    if (randomBeast != null) {
+
+                    }
                     currentFeatureIndex++
                 },
                 modifier = Modifier
                     .weight(1f)
                     .padding(4.dp)
             ) {
-                Text("Да")
+                if (randomBeast != null) {
+                    Text("Да"  + randomBeast.name)
+                }
             }
 
             Button(
                 onClick = {
-                    onFeatureRejected(beast.getFeature(currentFeatureIndex + 1))
-                    currentFeatureIndex++
+                    if (randomBeast != null) {
+                        onFeatureRejected(randomBeast.getFeature(currentFeatureIndex + 1))
+                    }
+
                 },
                 modifier = Modifier
                     .weight(1f)
                     .padding(4.dp)
             ) {
-                Text("Нет")
+                if (randomBeast != null) {
+                    Text("Нет")
+                }
             }
         }
 
@@ -445,6 +467,19 @@ fun MainGameSection(
     var animalsData by remember { mutableStateOf(beasts) }
     var gameInProgress by remember { mutableStateOf(true) }
     var currentQuestionIndex by remember { mutableStateOf(0) }
+
+    animalsData = beasts.filter { beast ->
+        confirmedFeatures1.all { feature ->
+            feature == beast.feature1 ||
+                    feature == beast.feature2 ||
+                    feature == beast.feature3 ||
+                    feature == beast.feature4 ||
+                    feature == beast.feature5 ||
+                    feature == beast.feature6 ||
+                    feature == beast.feature7 ||
+                    feature == beast.feature8
+        }
+    }
 
     if (gameInProgress && animalsData.isNotEmpty() && confirmedFeatures1.size < 8) {
         val correctBeast = animalsData.random()
