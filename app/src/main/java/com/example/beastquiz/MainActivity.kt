@@ -429,58 +429,62 @@ fun GuessFeatureSection(beasts: List<Beast>, onFeatureSelected: (String) -> Unit
 
     var randomBeast: Beast? = beasts.shuffled().firstOrNull()
     var currentFeatureIndex by remember { mutableStateOf(1) }
-
-            Column {
+    Box(
+        modifier = Modifier
+            .fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+            Column (horizontalAlignment = Alignment.CenterHorizontally){
 
                 if (randomBeast != null) {
-            Text(
-                text = "Подходит ли признак '${randomBeast.getFeature(currentFeatureIndex+1)}'?",
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(8.dp)
-            )
-        }
+                    Text(
+                        text = "Подходит ли признак '${randomBeast.getFeature(currentFeatureIndex + 1)}'?",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp)
-        ) {
-            Button(
-                onClick = {
-                    if (randomBeast != null) {
-                        onFeatureSelected(randomBeast.getFeature(currentFeatureIndex + 1))
-                    }
-                    if (randomBeast != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            if (randomBeast != null) {
+                                onFeatureSelected(randomBeast.getFeature(currentFeatureIndex + 1))
+                            }
+                            if (randomBeast != null) {
 
+                            }
+                            currentFeatureIndex++
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(4.dp)
+                    ) {
+                        if (randomBeast != null) {
+                            Text("Да")
+                        }
                     }
-                    currentFeatureIndex++
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(4.dp)
-            ) {
-                if (randomBeast != null) {
-                    Text("Да")
+
+                    Button(
+                        onClick = {
+                            if (randomBeast != null) {
+                                onFeatureRejected(randomBeast.getFeature(currentFeatureIndex + 1))
+                            }
+
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(4.dp)
+                    ) {
+                        if (randomBeast != null) {
+                            Text("Нет")
+                        }
+                    }
                 }
             }
-
-            Button(
-                onClick = {
-                    if (randomBeast != null) {
-                        onFeatureRejected(randomBeast.getFeature(currentFeatureIndex + 1))
-                    }
-
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(4.dp)
-            ) {
-                if (randomBeast != null) {
-                    Text("Нет")
-                }
-            }
-        }
-
 
 
     }
@@ -517,96 +521,104 @@ fun MainGameSection(
         var flag = true;
 
         if (currentQuestionIndex < correctBeast.features.size) {
-
-        Column (            horizontalAlignment = Alignment.CenterHorizontally
-        ){
-
-            Text(
-                text = "Это животное - ${correctBeast.name}?",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(8.dp)
-            )
-
-            Row(
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp)
+                    .fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                Button(
-                    onClick = {
-                        onGameEnd()
-                        gameInProgress = false
-                        flag = false
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(4.dp)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("Да")
-                }
 
-                Button(
-                    onClick = {
-                        Log.i("b", updatedAnimalsData.toString())
-                        if (updatedAnimalsData.size > 1) {
-                            updatedAnimalsData = updatedAnimalsData - correctBeast
-                            currentQuestionIndex++
+                    Text(
+                        text = "Это животное - ${correctBeast.name}?",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(8.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                onGameEnd()
+                                gameInProgress = false
+                                flag = false
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(4.dp)
+                        ) {
+                            Text("Да")
                         }
-                        else {
-                            onGameFail()
-                            gameInProgress = false
-                            flag = false
+
+                        Button(
+                            onClick = {
+                                Log.i("b", updatedAnimalsData.toString())
+                                if (updatedAnimalsData.size > 1) {
+                                    updatedAnimalsData = updatedAnimalsData - correctBeast
+                                    currentQuestionIndex++
+                                } else {
+                                    onGameFail()
+                                    gameInProgress = false
+                                    flag = false
+                                }
+
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(4.dp)
+                        ) {
+                            Text("Нет")
                         }
+                    }
 
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(4.dp)
-                ) {
-                    Text("Нет")
-                }
-            }
+                    if (flag == false) {
+                        Text(
+                            text = "Подходит ли признак '${correctBeast.features[currentQuestionIndex]}'?",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(8.dp)
+                        )
 
-            if (flag == false){
-            Text(
-                text = "Подходит ли признак '${correctBeast.features[currentQuestionIndex]}'?",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(8.dp)
-            )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    confirmedFeatures1 = confirmedFeatures1.toMutableList().apply {
+                                        add(correctBeast.features[currentQuestionIndex])
+                                    }
+                                    currentQuestionIndex++
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(4.dp)
+                            ) {
+                                Text("Да")
+                            }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp)
-            ) {
-                Button(
-                    onClick = {
-                        confirmedFeatures1 = confirmedFeatures1.toMutableList().apply {
-                            add(correctBeast.features[currentQuestionIndex])
+                            Button(
+                                onClick = {
+                                    currentQuestionIndex++
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(4.dp)
+                            ) {
+                                Text("Нет")
+                            }
                         }
-                        currentQuestionIndex++
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(4.dp)
-                ) {
-                    Text("Да")
+                    } else {
+                        Image(
+                            bitmap = ImageBitmap.imageResource(R.drawable.ask),
+                            contentDescription = "?"
+                        )
+                    }
                 }
-
-                Button(
-                    onClick = {
-                        currentQuestionIndex++
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(4.dp)
-                ) {
-                    Text("Нет")
-                }
-            }
-              } else {
-                  Image(bitmap = ImageBitmap.imageResource(R.drawable.scale_1200), contentDescription = "?")
-              }
             }
         }
     }
@@ -619,18 +631,20 @@ fun MainGameSection(
 fun ResultScreen(image: ImageBitmap, text: String, onRestartGame: () -> Unit) {
     Box(
         modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White),
+            .fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.headlineLarge,
-                modifier = Modifier.padding(8.dp)
-            )
+            Row {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.headlineLarge,
+                    modifier = Modifier.padding(8.dp)
+
+                )
+            }
             Button(
                 onClick = { onRestartGame() },
                 modifier = Modifier
