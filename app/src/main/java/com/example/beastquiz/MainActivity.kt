@@ -51,15 +51,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
@@ -343,45 +344,82 @@ fun BeastList(beasts: List<Beast>) {
         }
 }
 
+enum class GameScreen {
+    GUESS_FEATURE, MAIN_GAME, CONGRATULATIONS, DEFEAT
+}
 @Composable
 fun Game(beasts: List<Beast>) {
     var confirmedFeatures by remember { mutableStateOf(emptyList<String>()) }
-    var i by remember { mutableStateOf(0) }
     var animalsData by remember { mutableStateOf(beasts) }
+    var currentScreen by remember { mutableStateOf<GameScreen>(GameScreen.GUESS_FEATURE) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        if (confirmedFeatures.size < 3) {
-            GuessFeatureSection(
-                beasts = animalsData,
-                onFeatureSelected = { feature ->
-                    confirmedFeatures = confirmedFeatures + feature
-                    i++
-                },
-                onFeatureRejected = { feature ->
-                    animalsData = animalsData.filter { beast ->
-                        feature !in beast.features
+        when (currentScreen) {
+            GameScreen.GUESS_FEATURE -> {
+                GuessFeatureSection(
+                    beasts = animalsData,
+                    onFeatureSelected = { feature ->
+                        confirmedFeatures = confirmedFeatures + feature
+                        if (confirmedFeatures.size < 3) {
+                            animalsData = animalsData.filter { beast ->
+                                feature in beast.features
+                            }
+                            currentScreen = GameScreen.GUESS_FEATURE
+                        } else {
+                            currentScreen = GameScreen.MAIN_GAME
+                        }
+                    },
+                    onFeatureRejected = { feature ->
+                        animalsData = animalsData.filter { beast ->
+                            feature !in beast.features
+                        }
+                        Log.i("g", animalsData.size.toString())
+                        if (animalsData.size > 0)
+                        {
+                        if (confirmedFeatures.size < 3) {
+                            currentScreen = GameScreen.GUESS_FEATURE
+                        } else {
+                            currentScreen = GameScreen.MAIN_GAME
+                        }
+                        }
+                        else {
+                            currentScreen = GameScreen.DEFEAT
+                        }
+                    },
+                )
+            }
+            GameScreen.MAIN_GAME -> {
+                MainGameSection(
+                    beasts = beasts,
+                    confirmedFeatures = confirmedFeatures,
+                    onGameEnd = {
+                        currentScreen = GameScreen.CONGRATULATIONS
                     }
-                },
-
-            )
-        }
-        else {
-
-            MainGameSection(
-                beasts = beasts,
-                confirmedFeatures = confirmedFeatures,
-                onGameEnd = {
-
-
-                }
-            )
+                )
+            }
+            GameScreen.CONGRATULATIONS -> {
+                ResultScreen(image = ImageBitmap.imageResource(id = R.drawable.win),text = "Животное отгадано!", onRestartGame = {
+                    confirmedFeatures = emptyList()
+                    animalsData = beasts
+                    currentScreen = GameScreen.GUESS_FEATURE
+                })
+            }
+            GameScreen.DEFEAT -> {
+                ResultScreen(image = ImageBitmap.imageResource(id = R.drawable.defeat), text = "Я не смог угадать животное", onRestartGame = {
+                    confirmedFeatures = emptyList()
+                    animalsData = beasts
+                    currentScreen = GameScreen.GUESS_FEATURE
+                })
+            }
         }
     }
 }
+
+
 
 @Composable
 fun GuessFeatureSection(
@@ -391,16 +429,8 @@ fun GuessFeatureSection(
 
 ) {
 
-
     var randomBeast: Beast? = beasts.shuffled().firstOrNull()
-
-
     var currentFeatureIndex by remember { mutableStateOf(1) }
-
-
-
-
-
 
             Column {
 
@@ -432,7 +462,7 @@ fun GuessFeatureSection(
                     .padding(4.dp)
             ) {
                 if (randomBeast != null) {
-                    Text("Да"  + randomBeast.name)
+                    Text("Да")
                 }
             }
 
@@ -467,6 +497,7 @@ fun MainGameSection(
     var animalsData by remember { mutableStateOf(beasts) }
     var gameInProgress by remember { mutableStateOf(true) }
     var currentQuestionIndex by remember { mutableStateOf(0) }
+    var gameFinished by remember { mutableStateOf(false) }
 
     animalsData = beasts.filter { beast ->
         confirmedFeatures1.all { feature ->
@@ -486,10 +517,14 @@ fun MainGameSection(
 
 
         var flag = true;
+
         if (currentQuestionIndex < correctBeast.features.size) {
-        Column {
+
+        Column (            horizontalAlignment = Alignment.CenterHorizontally
+        ){
+
             Text(
-                text = "Это животное - ${correctBeast.name}? (Да/Нет)",
+                text = "Это животное - ${correctBeast.name}?",
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(8.dp)
             )
@@ -562,13 +597,41 @@ fun MainGameSection(
                     Text("Нет")
                 }
             }
+              } else {
+                  Image(bitmap = ImageBitmap.imageResource(R.drawable.scale_1200), contentDescription = "?")
               }
             }
         }
     }
 }
 
-
+@Composable
+fun ResultScreen(image: ImageBitmap, text: String, onRestartGame: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.headlineLarge,
+                modifier = Modifier.padding(8.dp)
+            )
+            Button(
+                onClick = { onRestartGame() },
+                modifier = Modifier
+                    .padding(8.dp)
+            ) {
+                Text("Начать заново")
+            }
+            Image(bitmap = image, contentDescription = "Result")
+        }
+    }
+}
 
 
 
@@ -592,7 +655,8 @@ fun BeastItem(beast: Beast) {
             overflow = TextOverflow.Ellipsis,
             style = TextStyle(
                 fontSize = 25.sp,
-                fontWeight = FontWeight.Normal
+                fontWeight = FontWeight.Normal,
+                color = Color.Blue
             )
         )
 
