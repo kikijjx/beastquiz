@@ -377,7 +377,6 @@ fun Game(beasts: List<Beast>) {
                         animalsData = animalsData.filter { beast ->
                             feature !in beast.features
                         }
-                        Log.i("g", animalsData.size.toString())
                         if (animalsData.size > 0)
                         {
                         if (confirmedFeatures.size < 3) {
@@ -398,7 +397,11 @@ fun Game(beasts: List<Beast>) {
                     confirmedFeatures = confirmedFeatures,
                     onGameEnd = {
                         currentScreen = GameScreen.CONGRATULATIONS
+                    },
+                    onGameFail = {
+                        currentScreen = GameScreen.DEFEAT
                     }
+
                 )
             }
             GameScreen.CONGRATULATIONS -> {
@@ -422,12 +425,7 @@ fun Game(beasts: List<Beast>) {
 
 
 @Composable
-fun GuessFeatureSection(
-    beasts: List<Beast>,
-    onFeatureSelected: (String) -> Unit,
-    onFeatureRejected: (String) -> Unit,
-
-) {
+fun GuessFeatureSection(beasts: List<Beast>, onFeatureSelected: (String) -> Unit, onFeatureRejected: (String) -> Unit, ) {
 
     var randomBeast: Beast? = beasts.shuffled().firstOrNull()
     var currentFeatureIndex by remember { mutableStateOf(1) }
@@ -491,6 +489,7 @@ fun GuessFeatureSection(
 fun MainGameSection(
     beasts: List<Beast>,
     onGameEnd: () -> Unit,
+    onGameFail: () -> Unit,
     confirmedFeatures: List<String>
 ) {
     var confirmedFeatures1 by remember { mutableStateOf(confirmedFeatures) }
@@ -511,11 +510,10 @@ fun MainGameSection(
                     feature == beast.feature8
         }
     }
+    var updatedAnimalsData by remember { mutableStateOf(animalsData) }
 
     if (gameInProgress && animalsData.isNotEmpty() && confirmedFeatures1.size < 8) {
         val correctBeast = animalsData.random()
-
-
         var flag = true;
 
         if (currentQuestionIndex < correctBeast.features.size) {
@@ -538,7 +536,7 @@ fun MainGameSection(
                     onClick = {
                         onGameEnd()
                         gameInProgress = false
-                        flag = false;
+                        flag = false
                     },
                     modifier = Modifier
                         .weight(1f)
@@ -549,8 +547,17 @@ fun MainGameSection(
 
                 Button(
                     onClick = {
-                        animalsData = animalsData.filter { it != correctBeast }
-                        currentQuestionIndex++
+                        Log.i("b", updatedAnimalsData.toString())
+                        if (updatedAnimalsData.size > 1) {
+                            updatedAnimalsData = updatedAnimalsData - correctBeast
+                            currentQuestionIndex++
+                        }
+                        else {
+                            onGameFail()
+                            gameInProgress = false
+                            flag = false
+                        }
+
                     },
                     modifier = Modifier
                         .weight(1f)
@@ -602,6 +609,9 @@ fun MainGameSection(
               }
             }
         }
+    }
+    LaunchedEffect(updatedAnimalsData) {
+        animalsData = updatedAnimalsData
     }
 }
 
